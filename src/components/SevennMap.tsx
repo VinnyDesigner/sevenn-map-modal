@@ -226,7 +226,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
 
           {/* Top-left: menu + toolbar + search */}
           <div className="absolute top-4 left-4 z-[1000] flex items-start gap-3">
-            <div className="bg-white rounded-full shadow-md py-1.5 flex flex-col items-center gap-1 w-10">
+            <div className="bg-white rounded-full shadow-md hover:shadow-lg transition flex flex-col items-center w-8">
               <button
                 onClick={() => {
                   setToolbarOpen((v) => !v);
@@ -235,7 +235,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
                 aria-label="Toggle menu"
               >
-                {toolbarOpen ? <X size={18} /> : <Menu size={18} />}
+                {toolbarOpen ? <X size={14} /> : <Menu size={14} />}
               </button>
               <div
                 className={`overflow-hidden transition-all duration-300 ease-out flex flex-col items-center gap-1 ${
@@ -329,7 +329,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
               activeKey={country.code}
             />
             <Dropdown
-              width="w-16 sm:w-20"
+              width="w-14 sm:w-16"
               value={language.code}
               options={LANGUAGES.map((l) => ({
                 key: l.code,
@@ -344,26 +344,26 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Bottom-left: zoom */}
-          <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-full shadow-md flex flex-col overflow-hidden">
+          <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition flex flex-col overflow-hidden">
             <button
               onClick={() => handleZoom(1)}
-              className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 transition"
+              className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 transition"
               aria-label="Zoom in"
             >
-              <Plus size={18} />
+              <Plus size={12} />
             </button>
-            <div className="h-px bg-gray-200 mx-2" />
+            <div className="h-px bg-gray-200 mx-1.5" />
             <button
               onClick={() => handleZoom(-1)}
-              className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 transition"
+              className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 transition"
               aria-label="Zoom out"
             >
-              <Minus size={18} />
+              <Minus size={12} />
             </button>
           </div>
 
           {/* Bottom status bar */}
-          <div className="absolute bottom-4 left-20 right-4 z-[1000] bg-white rounded-full shadow-md px-4 sm:px-5 h-10 flex items-center gap-2 sm:gap-4 text-xs text-gray-700 overflow-x-auto whitespace-nowrap max-w-[calc(100%-6rem)] w-fit">
+          <div className="absolute bottom-4 left-16 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition px-3 h-7 flex items-center gap-2 text-[10px] text-gray-700 overflow-x-auto whitespace-nowrap max-w-[calc(100%-5rem)] w-fit">
             <StatusItem label="Zoom" value={String(zoom)} />
             <Divider />
             <StatusItem label="Resolution" value="873.53" />
@@ -372,7 +372,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
             <Divider />
             <StatusItem label="Legend(s)" value="" />
             <span
-              className="inline-block w-4 h-4 rounded-sm border-2 shrink-0"
+              className="inline-block w-3 h-3 rounded-sm border-2 shrink-0"
               style={{ borderColor: PURPLE, background: `${PURPLE}40` }}
             />
             <span>Councils</span>
@@ -412,7 +412,8 @@ function Dropdown({
       <button
         onClick={() => setOpen((v) => !v)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        className={`h-8 ${width} bg-white rounded-full shadow-md flex items-center justify-between gap-1.5 px-3 text-xs text-gray-700 hover:bg-gray-50 hover:shadow-lg transition`}
+        className={`h-8 ${width} bg-white rounded-full shadow-md flex items-center justify-between px-3 text-xs font-medium text-gray-900 hover:bg-gray-50 hover:shadow-lg transition`}
+        style={{ gap: 8 }}
       >
         <span className="truncate">{value}</span>
         <ChevronDown
