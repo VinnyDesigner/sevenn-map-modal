@@ -1046,8 +1046,9 @@ function SettingsPanel() {
 }
 
 function DrawPanel() {
-  const { drawTool, setDrawTool, drawStyle, setDrawStyle, drawGroupRef } = useMapCtx();
+  const { drawTool, setDrawTool, drawStyle, setDrawStyle, clearDrawings, drawCount } = useMapCtx();
   const [tab, setTab] = useState<"draw" | "styles">("draw");
+  const [justCleared, setJustCleared] = useState(false);
 
   const tools: { key: DrawTool; label: string; Icon: any }[] = [
     { key: "point", label: "Point", Icon: Dot },
