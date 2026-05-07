@@ -456,28 +456,25 @@ function SidePanel({
   onToggleCollapse: () => void;
   onClose: () => void;
 }) {
-  // Default position: top-right area inside the map container
+  // null = use default right-aligned position; set on drag
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
 
-  // Initialize position once mounted (relative to parent)
-  useEffect(() => {
-    if (pos || !panelRef.current) return;
-    const parent = panelRef.current.offsetParent as HTMLElement | null;
-    if (!parent) return;
-    const pw = parent.clientWidth;
-    setPos({ x: pw - 280 - 16, y: 64 });
-  }, [pos]);
-
   const onMouseDown = (e: React.MouseEvent) => {
-    if (!panelRef.current || !pos) return;
-    dragRef.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
+    if (!panelRef.current) return;
+    const parent = panelRef.current.offsetParent as HTMLElement | null;
+    const rect = panelRef.current.getBoundingClientRect();
+    const parentRect = parent?.getBoundingClientRect();
+    const startX = parentRect ? rect.left - parentRect.left : rect.left;
+    const startY = parentRect ? rect.top - parentRect.top : rect.top;
+    dragRef.current = { dx: e.clientX - startX, dy: e.clientY - startY };
+    setPos({ x: startX, y: startY });
     const onMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return;
-      const parent = panelRef.current?.offsetParent as HTMLElement | null;
-      const maxX = parent ? parent.clientWidth - (panelRef.current?.offsetWidth ?? 0) : 9999;
-      const maxY = parent ? parent.clientHeight - (panelRef.current?.offsetHeight ?? 0) : 9999;
+      if (!dragRef.current || !panelRef.current) return;
+      const par = panelRef.current.offsetParent as HTMLElement | null;
+      const maxX = par ? par.clientWidth - panelRef.current.offsetWidth : 9999;
+      const maxY = par ? par.clientHeight - panelRef.current.offsetHeight : 9999;
       const nx = Math.max(0, Math.min(maxX, ev.clientX - dragRef.current.dx));
       const ny = Math.max(0, Math.min(maxY, ev.clientY - dragRef.current.dy));
       setPos({ x: nx, y: ny });
@@ -491,46 +488,59 @@ function SidePanel({
     window.addEventListener("mouseup", onUp);
   };
 
+  // When collapsed: snap tab to right edge of map (ignore drag pos)
+  if (collapsed) {
+    return (
+      <button
+        onClick={onToggleCollapse}
+        className="absolute right-0 top-16 z-[1000] w-7 h-9 bg-white rounded-l-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800 animate-fade-in"
+        aria-label="Expand panel"
+      >
+        <ChevronLeft size={14} />
+      </button>
+    );
+  }
+
+  // Expanded: default right-aligned under language dropdown, or dragged pos
+  const style: React.CSSProperties = pos
+    ? { left: pos.x, top: pos.y }
+    : { right: 16, top: 64 };
+
   return (
     <div
       ref={panelRef}
-      className="absolute z-[1000] w-[260px] animate-fade-in select-none"
-      style={pos ? { left: pos.x, top: pos.y } : { right: 16, top: 64, visibility: "hidden" }}
+      className="absolute z-[1000] w-[240px] sm:w-[260px] animate-fade-in select-none"
+      style={style}
     >
-      {/* External collapse tab */}
       <button
         onClick={onToggleCollapse}
         className="absolute -left-7 top-3 w-7 h-9 bg-white rounded-l-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800"
-        aria-label={collapsed ? "Expand panel" : "Collapse panel"}
+        aria-label="Collapse panel"
       >
-        {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        <ChevronRight size={14} />
       </button>
 
-      {!collapsed && (
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <div
-            onMouseDown={onMouseDown}
-            className="flex items-center justify-between px-4 py-2.5 cursor-move"
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div
+          onMouseDown={onMouseDown}
+          className="flex items-center justify-between px-4 py-2.5 cursor-move"
+        >
+          <h3 className="text-sm font-semibold text-gray-900">
+            {panelTitle(panel)}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-800 p-1"
+            aria-label="Close panel"
           >
-            <h3 className="text-sm font-semibold text-gray-900">
-              {panelTitle(panel)}
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-800 p-1"
-              aria-label="Close panel"
-            >
-              <X size={16} />
-            </button>
-          </div>
-          <div className="px-4 pb-4">{renderPanelBody(panel)}</div>
+            <X size={16} />
+          </button>
         </div>
-      )}
+        <div className="px-4 pb-4">{renderPanelBody(panel)}</div>
+      </div>
     </div>
   );
 }
-
-function panelTitle(panel: PanelKey) {
   switch (panel) {
     case "home":
       return "Home";
