@@ -181,16 +181,13 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
       );
 
       uploadGroupRef.current = L.layerGroup().addTo(map);
-      const drawGroup = L.layerGroup().addTo(map);
-      drawGroupRef.current = drawGroup;
-      drawGroup.on("layeradd", () => setDrawCount((n) => n + 1));
-      drawGroup.on("layerremove", () =>
-        setDrawCount(() => {
-          let c = 0;
-          drawGroup.eachLayer(() => { c++; });
-          return c;
-        }),
-      );
+      drawGroupRef.current = L.featureGroup().addTo(map);
+      drawGroupRef.current.on("layeradd layerremove", () => {
+        const g = drawGroupRef.current;
+        let c = 0;
+        g?.eachLayer(() => { c++; });
+        setDrawCount(c);
+      });
 
       map.on("zoomend", () =>
         setZoom(Math.round(map.getZoom() * 10) / 10),
@@ -1114,16 +1111,9 @@ function DrawPanel() {
               const n = clearDrawings();
               setJustCleared(true);
               window.setTimeout(() => setJustCleared(false), 1500);
-              if (n === 0) {
-                // brief feedback even when nothing to clear
-              }
+              console.log("[Draw] cleared", n, "shapes");
             }}
-            disabled={drawCount === 0}
-            className={`mt-3 w-full h-8 rounded-full text-xs font-medium transition flex items-center justify-center gap-1.5 ${
-              drawCount === 0
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-            }`}
+            className="mt-3 w-full h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-700 transition flex items-center justify-center gap-1.5"
           >
             <Trash2 size={12} />
             {justCleared ? "Cleared" : `Clear drawings${drawCount ? ` (${drawCount})` : ""}`}
