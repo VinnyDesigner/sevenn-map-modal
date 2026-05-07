@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Bookmark,
   Check,
@@ -11,6 +19,7 @@ import {
   Layers,
   Menu,
   Minus,
+  MapPin,
   MousePointer2,
   Pencil,
   Plus,
@@ -18,6 +27,7 @@ import {
   Settings,
   Slash,
   Square,
+  Trash2,
   Type,
   Upload,
   X,
@@ -35,6 +45,13 @@ const NL_PROVINCES_URL =
   "https://cartomap.github.io/nl/wgs84/provincie_2020.geojson";
 
 type PanelKey = "home" | "layers" | "upload" | "bookmark" | "draw" | "settings";
+type DrawTool =
+  | "point"
+  | "polyline"
+  | "text"
+  | "polygon"
+  | "circle"
+  | "rectangle";
 
 const COUNTRIES = [
   { code: "NL", name: "Netherlands", center: [52.3, 5.5], zoom: 7 },
@@ -51,12 +68,52 @@ const LANGUAGES = [
   { code: "FR", name: "Français" },
 ] as const;
 
+interface DrawStyle {
+  stroke: string;
+  opacity: number;
+}
+
+interface MapCtxValue {
+  L: any;
+  map: any;
+  provincesLayerRef: React.MutableRefObject<any>;
+  baseLayerRef: React.MutableRefObject<any>;
+  satelliteLayerRef: React.MutableRefObject<any>;
+  labelsLayerRef: React.MutableRefObject<any>;
+  uploadGroupRef: React.MutableRefObject<any>;
+  drawGroupRef: React.MutableRefObject<any>;
+  layersOn: Record<string, boolean>;
+  setLayersOn: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  drawTool: DrawTool | null;
+  setDrawTool: (t: DrawTool | null) => void;
+  drawStyle: DrawStyle;
+  setDrawStyle: React.Dispatch<React.SetStateAction<DrawStyle>>;
+  theme: "light" | "dark";
+  setTheme: (t: "light" | "dark") => void;
+  units: "metric" | "imperial";
+  setUnits: (u: "metric" | "imperial") => void;
+}
+
+const MapCtx = createContext<MapCtxValue | null>(null);
+const useMapCtx = () => {
+  const v = useContext(MapCtx);
+  if (!v) throw new Error("MapCtx missing");
+  return v;
+};
+
 export default function SevennMap({ open, onClose }: SevennMapProps) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const leafletMapRef = useRef<any>(null);
   const provincesLayerRef = useRef<any>(null);
+  const baseLayerRef = useRef<any>(null);
+  const satelliteLayerRef = useRef<any>(null);
+  const labelsLayerRef = useRef<any>(null);
+  const uploadGroupRef = useRef<any>(null);
+  const drawGroupRef = useRef<any>(null);
   const searchMarkerRef = useRef<any>(null);
+  const LRef = useRef<any>(null);
 
+  const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState(7);
   const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
@@ -71,6 +128,20 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
     { name: string; latlng: [number, number] }[]
   >([]);
 
+  const [layersOn, setLayersOn] = useState<Record<string, boolean>>({
+    councils: true,
+    roads: true,
+    labels: true,
+    satellite: false,
+  });
+  const [drawTool, setDrawToolState] = useState<DrawTool | null>(null);
+  const [drawStyle, setDrawStyle] = useState<DrawStyle>({
+    stroke: ACCENT,
+    opacity: 50,
+  });
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [units, setUnits] = useState<"metric" | "imperial">("metric");
+
   // Init map
   useEffect(() => {
     if (!open || !mapRef.current || leafletMapRef.current) return;
@@ -78,6 +149,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
 
     (async () => {
       const L = (await import("leaflet")).default;
+      LRef.current = L;
       if (cancelled || !mapRef.current) return;
 
       const map = L.map(mapRef.current, {
@@ -88,9 +160,26 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
       });
       leafletMapRef.current = map;
 
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-      }).addTo(map);
+      const base = L.tileLayer(
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        { maxZoom: 19 },
+      ).addTo(map);
+      baseLayerRef.current = base;
+
+      // Satellite (Esri) - off by default
+      satelliteLayerRef.current = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 19 },
+      );
+
+      // Labels overlay (Carto)
+      labelsLayerRef.current = L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
+        { maxZoom: 19 },
+      );
+
+      uploadGroupRef.current = L.layerGroup().addTo(map);
+      drawGroupRef.current = L.layerGroup().addTo(map);
 
       map.on("zoomend", () =>
         setZoom(Math.round(map.getZoom() * 10) / 10),
@@ -107,7 +196,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
             fillColor: PURPLE,
             fillOpacity: 0.35,
           },
-          onEachFeature: (feature, lyr: any) => {
+          onEachFeature: (feature: any, lyr: any) => {
             const name =
               feature.properties?.statnaam ||
               feature.properties?.name ||
@@ -130,6 +219,8 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
       } catch (e) {
         console.error("Failed to load NL provinces", e);
       }
+
+      setReady(true);
     })();
 
     return () => {
@@ -138,8 +229,14 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
         provincesLayerRef.current = null;
+        baseLayerRef.current = null;
+        satelliteLayerRef.current = null;
+        labelsLayerRef.current = null;
+        uploadGroupRef.current = null;
+        drawGroupRef.current = null;
         searchMarkerRef.current = null;
       }
+      setReady(false);
     };
   }, [open]);
 
@@ -148,6 +245,189 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
     if (!leafletMapRef.current) return;
     leafletMapRef.current.flyTo(country.center, country.zoom, { duration: 0.8 });
   }, [country]);
+
+  // Apply layer toggles
+  useEffect(() => {
+    const map = leafletMapRef.current;
+    if (!map || !ready) return;
+    const apply = (layer: any, on: boolean) => {
+      if (!layer) return;
+      if (on && !map.hasLayer(layer)) map.addLayer(layer);
+      if (!on && map.hasLayer(layer)) map.removeLayer(layer);
+    };
+    apply(provincesLayerRef.current, layersOn.councils);
+    apply(baseLayerRef.current, layersOn.roads);
+    apply(labelsLayerRef.current, layersOn.labels);
+    apply(satelliteLayerRef.current, layersOn.satellite);
+  }, [layersOn, ready]);
+
+  // Apply theme by swapping base tile if not satellite
+  useEffect(() => {
+    const map = leafletMapRef.current;
+    const L = LRef.current;
+    if (!map || !L || !ready) return;
+    if (baseLayerRef.current) map.removeLayer(baseLayerRef.current);
+    const url =
+      theme === "dark"
+        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        : "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+    baseLayerRef.current = L.tileLayer(url, { maxZoom: 19 });
+    if (layersOn.roads) baseLayerRef.current.addTo(map);
+  }, [theme, ready]);
+
+  // Drawing interactions
+  const drawStateRef = useRef<{
+    points: [number, number][];
+    tempLayer: any;
+    centerLatLng: any;
+  }>({ points: [], tempLayer: null, centerLatLng: null });
+
+  const setDrawTool = useCallback((t: DrawTool | null) => {
+    // Clear any in-progress geometry when switching tools
+    drawStateRef.current.points = [];
+    if (drawStateRef.current.tempLayer) {
+      drawStateRef.current.tempLayer.remove();
+      drawStateRef.current.tempLayer = null;
+    }
+    drawStateRef.current.centerLatLng = null;
+    setDrawToolState(t);
+  }, []);
+
+  useEffect(() => {
+    const map = leafletMapRef.current;
+    const L = LRef.current;
+    if (!map || !L || !ready) return;
+
+    map.getContainer().style.cursor = drawTool ? "crosshair" : "";
+
+    const styleOpts = () => ({
+      color: drawStyle.stroke,
+      fillColor: drawStyle.stroke,
+      fillOpacity: drawStyle.opacity / 100,
+      weight: 2,
+    });
+
+    const finishPolygonOrLine = () => {
+      const pts = drawStateRef.current.points;
+      if (pts.length < 2) return;
+      if (drawStateRef.current.tempLayer) {
+        drawStateRef.current.tempLayer.remove();
+        drawStateRef.current.tempLayer = null;
+      }
+      const layer =
+        drawTool === "polygon"
+          ? L.polygon(pts, styleOpts())
+          : L.polyline(pts, styleOpts());
+      drawGroupRef.current?.addLayer(layer);
+      drawStateRef.current.points = [];
+    };
+
+    const onClick = (e: any) => {
+      if (!drawTool) return;
+      const ll = [e.latlng.lat, e.latlng.lng] as [number, number];
+
+      if (drawTool === "point") {
+        const m = L.circleMarker(ll, {
+          radius: 6,
+          color: drawStyle.stroke,
+          fillColor: drawStyle.stroke,
+          fillOpacity: drawStyle.opacity / 100,
+        });
+        drawGroupRef.current?.addLayer(m);
+      } else if (drawTool === "text") {
+        const txt = window.prompt("Enter label text:");
+        if (txt) {
+          const icon = L.divIcon({
+            className: "",
+            html: `<div style="background:white;color:${drawStyle.stroke};padding:2px 6px;border-radius:6px;font-size:12px;font-weight:600;border:1px solid ${drawStyle.stroke};white-space:nowrap;">${escapeHtml(txt)}</div>`,
+          });
+          drawGroupRef.current?.addLayer(L.marker(ll, { icon }));
+        }
+      } else if (drawTool === "rectangle") {
+        if (!drawStateRef.current.points.length) {
+          drawStateRef.current.points.push(ll);
+        } else {
+          const a = drawStateRef.current.points[0];
+          drawGroupRef.current?.addLayer(
+            L.rectangle([a, ll], styleOpts()),
+          );
+          drawStateRef.current.points = [];
+        }
+      } else if (drawTool === "circle") {
+        if (!drawStateRef.current.centerLatLng) {
+          drawStateRef.current.centerLatLng = e.latlng;
+        } else {
+          const radius = e.latlng.distanceTo(drawStateRef.current.centerLatLng);
+          drawGroupRef.current?.addLayer(
+            L.circle(drawStateRef.current.centerLatLng, {
+              radius,
+              ...styleOpts(),
+            }),
+          );
+          drawStateRef.current.centerLatLng = null;
+        }
+      } else if (drawTool === "polyline" || drawTool === "polygon") {
+        drawStateRef.current.points.push(ll);
+        if (drawStateRef.current.tempLayer) {
+          drawStateRef.current.tempLayer.remove();
+        }
+        drawStateRef.current.tempLayer =
+          drawTool === "polygon"
+            ? L.polygon(drawStateRef.current.points, {
+                ...styleOpts(),
+                dashArray: "4 4",
+              }).addTo(map)
+            : L.polyline(drawStateRef.current.points, {
+                ...styleOpts(),
+                dashArray: "4 4",
+              }).addTo(map);
+      }
+    };
+
+    const onDblClick = (e: any) => {
+      if (drawTool === "polyline" || drawTool === "polygon") {
+        e.originalEvent?.preventDefault();
+        finishPolygonOrLine();
+      }
+    };
+
+    map.on("click", onClick);
+    map.on("dblclick", onDblClick);
+    if (drawTool === "polyline" || drawTool === "polygon") {
+      map.doubleClickZoom.disable();
+    } else {
+      map.doubleClickZoom.enable();
+    }
+
+    return () => {
+      map.off("click", onClick);
+      map.off("dblclick", onDblClick);
+      map.doubleClickZoom.enable();
+    };
+  }, [drawTool, drawStyle, ready]);
+
+  const ctxValue: MapCtxValue | null = ready
+    ? {
+        L: LRef.current,
+        map: leafletMapRef.current,
+        provincesLayerRef,
+        baseLayerRef,
+        satelliteLayerRef,
+        labelsLayerRef,
+        uploadGroupRef,
+        drawGroupRef,
+        layersOn,
+        setLayersOn,
+        drawTool,
+        setDrawTool,
+        drawStyle,
+        setDrawStyle,
+        theme,
+        setTheme,
+        units,
+        setUnits,
+      }
+    : null;
 
   if (!open) return null;
 
@@ -165,7 +445,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
   }, [search, provinceNames]);
 
   const handleSelectResult = async (r: { name: string; latlng: [number, number] }) => {
-    const L = (await import("leaflet")).default;
+    const L = LRef.current ?? (await import("leaflet")).default;
     const map = leafletMapRef.current;
     if (!map) return;
     map.flyTo(r.latlng, 9, { duration: 0.8 });
@@ -293,15 +573,15 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
                 )}
               </div>
               {searchOpen && filteredResults.length > 0 && (
-                <ul className="absolute top-11 left-0 w-full bg-white rounded-2xl shadow-lg overflow-hidden animate-fade-in">
+                <ul className="absolute top-10 left-0 w-full bg-white rounded-2xl shadow-lg overflow-hidden animate-fade-in">
                   {filteredResults.map((r) => (
                     <li key={r.name}>
                       <button
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleSelectResult(r)}
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center gap-2"
+                        className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 flex items-center gap-2"
                       >
-                        <Search size={14} className="text-gray-400" />
+                        <Search size={12} className="text-gray-400" />
                         {r.name}
                       </button>
                     </li>
@@ -309,7 +589,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
                 </ul>
               )}
               {searchOpen && search && filteredResults.length === 0 && (
-                <div className="absolute top-11 left-0 w-full bg-white rounded-2xl shadow-lg px-4 py-3 text-sm text-gray-500 animate-fade-in">
+                <div className="absolute top-10 left-0 w-full bg-white rounded-2xl shadow-lg px-4 py-2 text-xs text-gray-500 animate-fade-in">
                   No results
                 </div>
               )}
@@ -379,17 +659,25 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Right side panel */}
-          {activePanel && (
-            <SidePanel
-              panel={activePanel}
-              collapsed={panelCollapsed}
-              onToggleCollapse={() => setPanelCollapsed((v) => !v)}
-              onClose={() => setActivePanel(null)}
-            />
+          {activePanel && ctxValue && (
+            <MapCtx.Provider value={ctxValue}>
+              <SidePanel
+                panel={activePanel}
+                collapsed={panelCollapsed}
+                onToggleCollapse={() => setPanelCollapsed((v) => !v)}
+                onClose={() => setActivePanel(null)}
+              />
+            </MapCtx.Provider>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!),
   );
 }
 
@@ -422,7 +710,7 @@ function Dropdown({
         />
       </button>
       {open && (
-        <ul className="absolute top-11 right-0 min-w-full w-max bg-white rounded-2xl shadow-lg overflow-hidden animate-fade-in z-10">
+        <ul className="absolute top-10 right-0 min-w-full w-max bg-white rounded-2xl shadow-lg overflow-hidden animate-fade-in z-10">
           {options.map((o) => (
             <li key={o.key}>
               <button
@@ -431,12 +719,12 @@ function Dropdown({
                   onSelect(o.key);
                   setOpen(false);
                 }}
-                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between gap-3 ${
+                className={`w-full text-left px-4 py-2 text-xs hover:bg-gray-50 flex items-center justify-between gap-3 ${
                   activeKey === o.key ? "text-[#3b39e8] font-medium" : "text-gray-700"
                 }`}
               >
                 <span>{o.label}</span>
-                {activeKey === o.key && <Check size={14} />}
+                {activeKey === o.key && <Check size={12} />}
               </button>
             </li>
           ))}
@@ -457,7 +745,6 @@ function SidePanel({
   onToggleCollapse: () => void;
   onClose: () => void;
 }) {
-  // null = use default right-aligned position; set on drag
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
@@ -489,7 +776,6 @@ function SidePanel({
     window.addEventListener("mouseup", onUp);
   };
 
-  // When collapsed: snap tab to right edge of map (ignore drag pos)
   if (collapsed) {
     return (
       <button
@@ -502,10 +788,9 @@ function SidePanel({
     );
   }
 
-  // Expanded: default right-aligned under language dropdown, or dragged pos
   const style: React.CSSProperties = pos
     ? { left: pos.x, top: pos.y }
-    : { right: 16, top: 64 };
+    : { right: 16, top: 56 };
 
   return (
     <div
@@ -571,88 +856,115 @@ function renderPanelBody(panel: PanelKey) {
     case "upload":
       return <UploadPanel />;
     case "home":
-      return <PlaceholderPanel text="Reset map to default view." />;
+      return <p className="text-xs text-gray-500">Reset map to default view.</p>;
     case "settings":
       return <SettingsPanel />;
   }
 }
 
-function PlaceholderPanel({ text }: { text: string }) {
-  return <p className="text-sm text-gray-500">{text}</p>;
-}
-
 function LayersPanel() {
-  const [layers, setLayers] = useState([
-    { key: "councils", label: "Councils", on: true },
-    { key: "roads", label: "Roads", on: true },
-    { key: "labels", label: "Labels", on: true },
-    { key: "satellite", label: "Satellite", on: false },
-  ]);
+  const { layersOn, setLayersOn } = useMapCtx();
+  const layers = [
+    { key: "councils", label: "Councils (Provinces)" },
+    { key: "roads", label: "Base Map" },
+    { key: "labels", label: "Labels" },
+    { key: "satellite", label: "Satellite" },
+  ];
   return (
     <ul className="space-y-2">
-      {layers.map((l) => (
-        <li
-          key={l.key}
-          className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3"
-        >
-          <span className="text-sm text-gray-800">{l.label}</span>
-          <button
-            onClick={() =>
-              setLayers((ls) =>
-                ls.map((x) => (x.key === l.key ? { ...x, on: !x.on } : x)),
-              )
-            }
-            className={`w-10 h-6 rounded-full relative transition ${
-              l.on ? "bg-[#3b39e8]" : "bg-gray-300"
-            }`}
-            aria-label={`Toggle ${l.label}`}
+      {layers.map((l) => {
+        const on = !!layersOn[l.key];
+        return (
+          <li
+            key={l.key}
+            className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2"
           >
-            <span
-              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${
-                l.on ? "left-[18px]" : "left-0.5"
+            <span className="text-xs text-gray-800">{l.label}</span>
+            <button
+              onClick={() =>
+                setLayersOn((s) => ({ ...s, [l.key]: !s[l.key] }))
+              }
+              className={`w-9 h-5 rounded-full relative transition ${
+                on ? "bg-[#3b39e8]" : "bg-gray-300"
               }`}
-            />
-          </button>
-        </li>
-      ))}
+              aria-label={`Toggle ${l.label}`}
+            >
+              <span
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${
+                  on ? "left-[18px]" : "left-0.5"
+                }`}
+              />
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
 function UploadPanel() {
-  const [files, setFiles] = useState<File[]>([]);
+  const { L, map, uploadGroupRef } = useMapCtx();
+  const [files, setFiles] = useState<{ name: string; layer: any }[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFiles = async (list: FileList | null) => {
+    if (!list) return;
+    for (const f of Array.from(list)) {
+      try {
+        const text = await f.text();
+        const geo = JSON.parse(text);
+        const layer = L.geoJSON(geo, {
+          style: { color: ACCENT, weight: 2, fillColor: ACCENT, fillOpacity: 0.3 },
+        });
+        uploadGroupRef.current?.addLayer(layer);
+        try {
+          map.fitBounds(layer.getBounds(), { padding: [40, 40] });
+        } catch {}
+        setFiles((fs) => [...fs, { name: f.name, layer }]);
+      } catch (e) {
+        console.error("Upload failed", f.name, e);
+        window.alert(`Could not parse ${f.name}. Only GeoJSON .json/.geojson supported.`);
+      }
+    }
+  };
+
   return (
     <div>
       <button
         onClick={() => inputRef.current?.click()}
-        className="w-full border-2 border-dashed border-gray-300 rounded-xl py-8 flex flex-col items-center text-gray-500 hover:border-[#3b39e8] hover:text-[#3b39e8] transition"
+        className="w-full border-2 border-dashed border-gray-300 rounded-xl py-6 flex flex-col items-center text-gray-500 hover:border-[#3b39e8] hover:text-[#3b39e8] transition"
       >
-        <Upload size={24} />
-        <span className="mt-2 text-sm">Click to upload files</span>
+        <Upload size={20} />
+        <span className="mt-2 text-xs">Upload GeoJSON</span>
       </button>
       <input
         ref={inputRef}
         type="file"
+        accept=".geojson,.json,application/geo+json,application/json"
         multiple
         className="hidden"
-        onChange={(e) =>
-          setFiles((f) => [...f, ...Array.from(e.target.files ?? [])])
-        }
+        onChange={(e) => {
+          handleFiles(e.target.files);
+          e.target.value = "";
+        }}
       />
       {files.length > 0 && (
-        <ul className="mt-4 space-y-2">
+        <ul className="mt-3 space-y-2">
           {files.map((f, i) => (
             <li
               key={i}
-              className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm"
+              className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-xs"
             >
               <span className="truncate">{f.name}</span>
               <button
-                onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))}
-                className="text-gray-400 hover:text-gray-700"
+                onClick={() => {
+                  uploadGroupRef.current?.removeLayer(f.layer);
+                  setFiles((fs) => fs.filter((_, j) => j !== i));
+                }}
+                className="text-gray-400 hover:text-red-600"
+                aria-label="Remove"
               >
-                <X size={14} />
+                <Trash2 size={14} />
               </button>
             </li>
           ))}
@@ -663,18 +975,17 @@ function UploadPanel() {
 }
 
 function SettingsPanel() {
-  const [units, setUnits] = useState<"metric" | "imperial">("metric");
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const { theme, setTheme, units, setUnits } = useMapCtx();
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div>
-        <p className="text-sm font-medium text-gray-800 mb-2">Units</p>
+        <p className="text-xs font-medium text-gray-800 mb-2">Units</p>
         <div className="bg-gray-100 rounded-full p-1 flex">
           {(["metric", "imperial"] as const).map((u) => (
             <button
               key={u}
               onClick={() => setUnits(u)}
-              className={`flex-1 h-8 rounded-full text-xs font-medium capitalize transition ${
+              className={`flex-1 h-7 rounded-full text-[11px] font-medium capitalize transition ${
                 units === u ? "bg-[#3b39e8] text-white" : "text-gray-700"
               }`}
             >
@@ -684,13 +995,13 @@ function SettingsPanel() {
         </div>
       </div>
       <div>
-        <p className="text-sm font-medium text-gray-800 mb-2">Theme</p>
+        <p className="text-xs font-medium text-gray-800 mb-2">Theme</p>
         <div className="bg-gray-100 rounded-full p-1 flex">
           {(["light", "dark"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTheme(t)}
-              className={`flex-1 h-8 rounded-full text-xs font-medium capitalize transition ${
+              className={`flex-1 h-7 rounded-full text-[11px] font-medium capitalize transition ${
                 theme === t ? "bg-[#3b39e8] text-white" : "text-gray-700"
               }`}
             >
@@ -704,12 +1015,10 @@ function SettingsPanel() {
 }
 
 function DrawPanel() {
+  const { drawTool, setDrawTool, drawStyle, setDrawStyle, drawGroupRef } = useMapCtx();
   const [tab, setTab] = useState<"draw" | "styles">("draw");
-  const [tool, setTool] = useState<string | null>(null);
-  const [stroke, setStroke] = useState("#3b39e8");
-  const [opacity, setOpacity] = useState(50);
 
-  const tools = [
+  const tools: { key: DrawTool; label: string; Icon: any }[] = [
     { key: "point", label: "Point", Icon: Dot },
     { key: "polyline", label: "Polyline", Icon: Slash },
     { key: "text", label: "Text", Icon: Type },
@@ -720,12 +1029,12 @@ function DrawPanel() {
 
   return (
     <div>
-      <div className="bg-gray-100 rounded-full p-1 flex mb-5">
+      <div className="bg-gray-100 rounded-full p-1 flex mb-4">
         {(["draw", "styles"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 h-9 rounded-full text-sm font-medium capitalize transition ${
+            className={`flex-1 h-7 rounded-full text-xs font-medium capitalize transition ${
               tab === t ? "bg-[#3b39e8] text-white" : "text-gray-700"
             }`}
           >
@@ -735,36 +1044,57 @@ function DrawPanel() {
       </div>
 
       {tab === "draw" ? (
-        <div className="grid grid-cols-3 gap-3">
-          {tools.map(({ key, label, Icon }) => {
-            const active = tool === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setTool(active ? null : key)}
-                className={`aspect-square rounded-xl border flex flex-col items-center justify-center gap-2 transition ${
-                  active
-                    ? "border-[#3b39e8] bg-[#3b39e8]/5 text-[#3b39e8]"
-                    : "border-gray-200 text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                <Icon size={22} />
-                <span className="text-xs font-medium">{label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            {tools.map(({ key, label, Icon }) => {
+              const active = drawTool === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setDrawTool(active ? null : key)}
+                  className={`aspect-square rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
+                    active
+                      ? "border-[#3b39e8] bg-[#3b39e8]/5 text-[#3b39e8]"
+                      : "border-gray-200 text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <Icon size={18} />
+                  <span className="text-[10px] font-medium">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {drawTool && (
+            <p className="mt-3 text-[11px] text-gray-500 leading-relaxed">
+              {drawTool === "polyline" || drawTool === "polygon"
+                ? "Click to add points, double-click to finish."
+                : drawTool === "rectangle"
+                ? "Click two opposite corners on the map."
+                : drawTool === "circle"
+                ? "Click center, then click to set radius."
+                : drawTool === "text"
+                ? "Click on the map to place a label."
+                : "Click on the map to add."}
+            </p>
+          )}
+          <button
+            onClick={() => drawGroupRef.current?.clearLayers()}
+            className="mt-3 w-full h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-700 transition flex items-center justify-center gap-1.5"
+          >
+            <Trash2 size={12} /> Clear drawings
+          </button>
+        </>
       ) : (
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-medium text-gray-800 mb-2">Stroke color</p>
+            <p className="text-xs font-medium text-gray-800 mb-2">Stroke color</p>
             <div className="flex gap-2">
               {["#3b39e8", "#8b5cf6", "#ef4444", "#10b981", "#f59e0b"].map((c) => (
                 <button
                   key={c}
-                  onClick={() => setStroke(c)}
-                  className={`w-8 h-8 rounded-full border-2 transition ${
-                    stroke === c ? "border-gray-900 scale-110" : "border-white"
+                  onClick={() => setDrawStyle((s) => ({ ...s, stroke: c }))}
+                  className={`w-7 h-7 rounded-full border-2 transition ${
+                    drawStyle.stroke === c ? "border-gray-900 scale-110" : "border-white"
                   }`}
                   style={{ background: c }}
                 />
@@ -772,15 +1102,17 @@ function DrawPanel() {
             </div>
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-800 mb-2">
-              Fill opacity: {opacity}%
+            <p className="text-xs font-medium text-gray-800 mb-2">
+              Fill opacity: {drawStyle.opacity}%
             </p>
             <input
               type="range"
               min={0}
               max={100}
-              value={opacity}
-              onChange={(e) => setOpacity(+e.target.value)}
+              value={drawStyle.opacity}
+              onChange={(e) =>
+                setDrawStyle((s) => ({ ...s, opacity: +e.target.value }))
+              }
               className="w-full accent-[#3b39e8]"
             />
           </div>
@@ -790,24 +1122,61 @@ function DrawPanel() {
   );
 }
 
+interface BookmarkItem {
+  id: string;
+  name: string;
+  center: [number, number];
+  zoom: number;
+}
+
 function BookmarkPanel() {
-  const [bookmarks, setBookmarks] = useState<{ id: string; name: string }[]>([]);
+  const { map } = useMapCtx();
+  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>(() => {
+    try {
+      const raw = localStorage.getItem("sevenn-bookmarks");
+      return raw ? (JSON.parse(raw) as BookmarkItem[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("sevenn-bookmarks", JSON.stringify(bookmarks));
+    } catch {}
+  }, [bookmarks]);
+
+  const addBookmark = () => {
+    if (!map) return;
+    const c = map.getCenter();
+    const name = window.prompt("Bookmark name:", `Bookmark ${bookmarks.length + 1}`);
+    if (!name) return;
+    setBookmarks((bs) => [
+      ...bs,
+      {
+        id: crypto.randomUUID(),
+        name,
+        center: [c.lat, c.lng],
+        zoom: map.getZoom(),
+      },
+    ]);
+  };
+
+  const goTo = (b: BookmarkItem) => {
+    map?.flyTo(b.center, b.zoom, { duration: 0.8 });
+  };
 
   if (bookmarks.length === 0) {
     return (
-      <div className="bg-[#f5f6ff] rounded-xl py-8 px-4 flex flex-col items-center text-center">
-        <Bookmark size={28} className="text-[#3b39e8] fill-[#3b39e8]" />
-        <p className="mt-3 font-semibold text-gray-900">No Bookmarks</p>
-        <p className="mt-1 text-xs text-gray-500 max-w-[220px]">
+      <div className="bg-[#f5f6ff] rounded-xl py-6 px-4 flex flex-col items-center text-center">
+        <Bookmark size={24} className="text-[#3b39e8] fill-[#3b39e8]" />
+        <p className="mt-2 font-semibold text-gray-900 text-sm">No Bookmarks</p>
+        <p className="mt-1 text-[11px] text-gray-500 max-w-[220px]">
           Add bookmarks to your map and they will appear here.
         </p>
         <button
-          onClick={() =>
-            setBookmarks([
-              { id: crypto.randomUUID(), name: `Bookmark 1` },
-            ])
-          }
-          className="mt-5 px-5 h-10 rounded-full bg-[#3b39e8] text-white text-sm font-medium hover:opacity-90 transition"
+          onClick={addBookmark}
+          className="mt-4 px-4 h-8 rounded-full bg-[#3b39e8] text-white text-xs font-medium hover:opacity-90 transition"
         >
           + Add Bookmark
         </button>
@@ -817,30 +1186,33 @@ function BookmarkPanel() {
 
   return (
     <div>
-      <ul className="space-y-2">
+      <ul className="space-y-2 max-h-[280px] overflow-y-auto">
         {bookmarks.map((b) => (
           <li
             key={b.id}
-            className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 text-sm"
+            className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-xs"
           >
-            <span>{b.name}</span>
             <button
-              onClick={() => setBookmarks((bs) => bs.filter((x) => x.id !== b.id))}
-              className="text-gray-400 hover:text-gray-700"
+              onClick={() => goTo(b)}
+              className="flex items-center gap-2 flex-1 text-left hover:text-[#3b39e8] transition min-w-0"
             >
-              <X size={16} />
+              <MapPin size={12} className="text-[#3b39e8] shrink-0" />
+              <span className="truncate">{b.name}</span>
+            </button>
+            <button
+              onClick={() =>
+                setBookmarks((bs) => bs.filter((x) => x.id !== b.id))
+              }
+              className="text-gray-400 hover:text-red-600 ml-2"
+            >
+              <Trash2 size={12} />
             </button>
           </li>
         ))}
       </ul>
       <button
-        onClick={() =>
-          setBookmarks((bs) => [
-            ...bs,
-            { id: crypto.randomUUID(), name: `Bookmark ${bs.length + 1}` },
-          ])
-        }
-        className="w-full mt-3 h-10 rounded-full bg-[#3b39e8] text-white text-sm font-medium hover:opacity-90 transition"
+        onClick={addBookmark}
+        className="w-full mt-3 h-8 rounded-full bg-[#3b39e8] text-white text-xs font-medium hover:opacity-90 transition"
       >
         + Add Bookmark
       </button>
@@ -858,5 +1230,5 @@ function StatusItem({ label, value }: { label: string; value: string }) {
 }
 
 function Divider() {
-  return <span className="w-px h-4 bg-gray-200" />;
+  return <span className="w-px h-3 bg-gray-200" />;
 }
