@@ -416,7 +416,7 @@ function Dropdown({
       >
         <span className="truncate">{value}</span>
         <ChevronDown
-          size={14}
+          size={12}
           className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
