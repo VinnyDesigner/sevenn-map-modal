@@ -92,6 +92,8 @@ interface MapCtxValue {
   setTheme: (t: "light" | "dark") => void;
   units: "metric" | "imperial";
   setUnits: (u: "metric" | "imperial") => void;
+  clearDrawings: () => number;
+  drawCount: number;
 }
 
 const MapCtx = createContext<MapCtxValue | null>(null);
@@ -179,7 +181,16 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
       );
 
       uploadGroupRef.current = L.layerGroup().addTo(map);
-      drawGroupRef.current = L.layerGroup().addTo(map);
+      const drawGroup = L.layerGroup().addTo(map);
+      drawGroupRef.current = drawGroup;
+      drawGroup.on("layeradd", () => setDrawCount((n) => n + 1));
+      drawGroup.on("layerremove", () =>
+        setDrawCount(() => {
+          let c = 0;
+          drawGroup.eachLayer(() => { c++; });
+          return c;
+        }),
+      );
 
       map.on("zoomend", () =>
         setZoom(Math.round(map.getZoom() * 10) / 10),
@@ -282,16 +293,34 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
     centerLatLng: any;
   }>({ points: [], tempLayer: null, centerLatLng: null });
 
-  const setDrawTool = useCallback((t: DrawTool | null) => {
-    // Clear any in-progress geometry when switching tools
+  const [drawCount, setDrawCount] = useState(0);
+
+  const resetInProgressDraw = useCallback(() => {
     drawStateRef.current.points = [];
     if (drawStateRef.current.tempLayer) {
       drawStateRef.current.tempLayer.remove();
       drawStateRef.current.tempLayer = null;
     }
     drawStateRef.current.centerLatLng = null;
-    setDrawToolState(t);
   }, []);
+
+  const setDrawTool = useCallback((t: DrawTool | null) => {
+    resetInProgressDraw();
+    setDrawToolState(t);
+  }, [resetInProgressDraw]);
+
+  const clearDrawings = useCallback(() => {
+    const grp = drawGroupRef.current;
+    let n = 0;
+    if (grp) {
+      grp.eachLayer(() => { n++; });
+      grp.clearLayers();
+    }
+    resetInProgressDraw();
+    setDrawCount(0);
+    return n;
+  }, [resetInProgressDraw]);
+
 
   useEffect(() => {
     const map = leafletMapRef.current;
@@ -426,6 +455,8 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
         setTheme,
         units,
         setUnits,
+        clearDrawings,
+        drawCount,
       }
     : null;
 
@@ -1015,8 +1046,9 @@ function SettingsPanel() {
 }
 
 function DrawPanel() {
-  const { drawTool, setDrawTool, drawStyle, setDrawStyle, drawGroupRef } = useMapCtx();
+  const { drawTool, setDrawTool, drawStyle, setDrawStyle, clearDrawings, drawCount } = useMapCtx();
   const [tab, setTab] = useState<"draw" | "styles">("draw");
+  const [justCleared, setJustCleared] = useState(false);
 
   const tools: { key: DrawTool; label: string; Icon: any }[] = [
     { key: "point", label: "Point", Icon: Dot },
@@ -1078,10 +1110,23 @@ function DrawPanel() {
             </p>
           )}
           <button
-            onClick={() => drawGroupRef.current?.clearLayers()}
-            className="mt-3 w-full h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-700 transition flex items-center justify-center gap-1.5"
+            onClick={() => {
+              const n = clearDrawings();
+              setJustCleared(true);
+              window.setTimeout(() => setJustCleared(false), 1500);
+              if (n === 0) {
+                // brief feedback even when nothing to clear
+              }
+            }}
+            disabled={drawCount === 0}
+            className={`mt-3 w-full h-8 rounded-full text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+              drawCount === 0
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+            }`}
           >
-            <Trash2 size={12} /> Clear drawings
+            <Trash2 size={12} />
+            {justCleared ? "Cleared" : `Clear drawings${drawCount ? ` (${drawCount})` : ""}`}
           </button>
         </>
       ) : (
