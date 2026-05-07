@@ -329,7 +329,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
               activeKey={country.code}
             />
             <Dropdown
-              width="w-16 sm:w-20"
+              width="w-14 sm:w-16"
               value={language.code}
               options={LANGUAGES.map((l) => ({
                 key: l.code,
