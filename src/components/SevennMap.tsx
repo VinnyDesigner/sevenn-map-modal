@@ -265,8 +265,8 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
 
             {/* Search */}
             <div className="relative">
-              <div className="h-9 w-[180px] sm:w-[240px] md:w-[300px] bg-white rounded-full shadow-md flex items-center px-4 gap-2">
-                <Search size={16} className="text-gray-400 shrink-0" />
+              <div className="h-8 w-[140px] sm:w-[180px] md:w-[220px] bg-white rounded-full shadow-md hover:shadow-lg transition flex items-center px-3 gap-2">
+                <Search size={14} className="text-gray-400 shrink-0" />
                 <input
                   type="text"
                   value={search}
@@ -277,7 +277,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
                   onFocus={() => setSearchOpen(true)}
                   onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
                   placeholder="Search"
-                  className="flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:text-gray-400"
+                  className="flex-1 min-w-0 bg-transparent outline-none text-xs placeholder:text-gray-400"
                 />
                 {search && (
                   <button
@@ -319,7 +319,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           {/* Top-right: dropdowns */}
           <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2 sm:gap-3">
             <Dropdown
-              width="w-28 sm:w-36"
+              width="w-24 sm:w-28"
               value={country.name}
               options={COUNTRIES.map((c) => ({ key: c.code, label: c.name }))}
               onSelect={(key) => {
@@ -329,7 +329,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
               activeKey={country.code}
             />
             <Dropdown
-              width="w-20 sm:w-24"
+              width="w-16 sm:w-20"
               value={language.code}
               options={LANGUAGES.map((l) => ({
                 key: l.code,
@@ -412,11 +412,11 @@ function Dropdown({
       <button
         onClick={() => setOpen((v) => !v)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        className={`h-9 ${width} bg-white rounded-full shadow-md flex items-center justify-between gap-2 px-4 text-sm text-gray-700 hover:shadow-lg transition`}
+        className={`h-8 ${width} bg-white rounded-full shadow-md flex items-center justify-between gap-1.5 px-3 text-xs text-gray-700 hover:bg-gray-50 hover:shadow-lg transition`}
       >
         <span className="truncate">{value}</span>
         <ChevronDown
-          size={14}
+          size={12}
           className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
