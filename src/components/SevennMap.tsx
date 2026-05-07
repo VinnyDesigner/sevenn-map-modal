@@ -446,6 +446,8 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
         setTheme,
         units,
         setUnits,
+        clearDrawings,
+        drawCount,
       }
     : null;
 
