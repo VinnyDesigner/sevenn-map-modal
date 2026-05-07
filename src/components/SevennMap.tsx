@@ -522,6 +522,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           onClick={onClose}
           className="text-foreground hover:opacity-70 transition"
           aria-label="Close"
+          title="Close"
         >
           <X size={22} />
         </button>
@@ -542,8 +543,16 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
                 }}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
                 aria-label="Toggle menu"
+                title={toolbarOpen ? "Close menu" : "Open menu"}
               >
-                {toolbarOpen ? <X size={14} /> : <Menu size={14} />}
+                {toolbarOpen ? (
+                  <X size={14} />
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                    <line x1="2.5" y1="5" x2="11.5" y2="5" />
+                    <line x1="2.5" y1="9" x2="11.5" y2="9" />
+                  </svg>
+                )}
               </button>
               <div
                 className={`overflow-hidden transition-all duration-300 ease-out flex flex-col items-center gap-1 ${
@@ -574,7 +583,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
             {/* Search */}
             <div className="relative">
               <div className="h-8 w-[140px] sm:w-[180px] md:w-[220px] bg-white rounded-full shadow-md hover:shadow-lg transition flex items-center px-3 gap-2">
-                <Search size={14} className="text-gray-400 shrink-0" />
+                <Search size={14} className="text-gray-700 shrink-0" />
                 <input
                   type="text"
                   value={search}
@@ -595,6 +604,8 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
                       searchMarkerRef.current = null;
                     }}
                     className="text-gray-400 hover:text-gray-700"
+                    title="Clear search"
+                    aria-label="Clear search"
                   >
                     <X size={14} />
                   </button>
@@ -657,6 +668,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
               onClick={() => handleZoom(1)}
               className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 transition"
               aria-label="Zoom in"
+              title="Zoom in"
             >
               <Plus size={12} />
             </button>
@@ -665,6 +677,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
               onClick={() => handleZoom(-1)}
               className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 transition"
               aria-label="Zoom out"
+              title="Zoom out"
             >
               <Minus size={12} />
             </button>
@@ -810,6 +823,7 @@ function SidePanel({
         onClick={onToggleCollapse}
         className="absolute right-0 top-16 z-[1000] w-7 h-9 bg-white rounded-l-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800 animate-fade-in"
         aria-label="Expand panel"
+        title="Expand panel"
       >
         <ChevronLeft size={14} />
       </button>
@@ -830,6 +844,7 @@ function SidePanel({
         onClick={onToggleCollapse}
         className="absolute -left-7 top-3 w-7 h-9 bg-white rounded-l-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800"
         aria-label="Collapse panel"
+        title="Collapse panel"
       >
         <ChevronRight size={14} />
       </button>
@@ -846,6 +861,7 @@ function SidePanel({
             onClick={onClose}
             className="text-gray-500 hover:text-gray-800 p-1"
             aria-label="Close panel"
+            title="Close panel"
           >
             <X size={16} />
           </button>
@@ -916,6 +932,7 @@ function LayersPanel() {
                 on ? "bg-[#3b39e8]" : "bg-gray-300"
               }`}
               aria-label={`Toggle ${l.label}`}
+              title={`Toggle ${l.label}`}
             >
               <span
                 className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${
@@ -991,6 +1008,7 @@ function UploadPanel() {
                 }}
                 className="text-gray-400 hover:text-red-600"
                 aria-label="Remove"
+                title="Remove"
               >
                 <Trash2 size={14} />
               </button>
