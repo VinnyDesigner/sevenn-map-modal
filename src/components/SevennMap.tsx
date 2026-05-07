@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bookmark,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -29,18 +30,48 @@ interface SevennMapProps {
 }
 
 const PURPLE = "#8b5cf6";
+const ACCENT = "#3b39e8";
 const NL_PROVINCES_URL =
   "https://cartomap.github.io/nl/wgs84/provincie_2020.geojson";
 
 type PanelKey = "home" | "layers" | "upload" | "bookmark" | "draw" | "settings";
 
+const COUNTRIES = [
+  { code: "NL", name: "Netherlands", center: [52.3, 5.5], zoom: 7 },
+  { code: "DE", name: "Germany", center: [51.0, 10.5], zoom: 6 },
+  { code: "BE", name: "Belgium", center: [50.6, 4.5], zoom: 7 },
+  { code: "FR", name: "France", center: [46.5, 2.5], zoom: 6 },
+  { code: "GB", name: "United Kingdom", center: [54.5, -2.5], zoom: 6 },
+] as const;
+
+const LANGUAGES = [
+  { code: "EN", name: "English" },
+  { code: "NL", name: "Nederlands" },
+  { code: "DE", name: "Deutsch" },
+  { code: "FR", name: "Français" },
+] as const;
+
 export default function SevennMap({ open, onClose }: SevennMapProps) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const leafletMapRef = useRef<any>(null);
-  const [zoom, setZoom] = useState(7.5);
+  const provincesLayerRef = useRef<any>(null);
+  const searchMarkerRef = useRef<any>(null);
+
+  const [zoom, setZoom] = useState(7);
   const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [toolbarOpen, setToolbarOpen] = useState(true);
 
+  const [country, setCountry] = useState<typeof COUNTRIES[number]>(COUNTRIES[0]);
+  const [language, setLanguage] = useState<typeof LANGUAGES[number]>(LANGUAGES[0]);
+
+  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [provinceNames, setProvinceNames] = useState<
+    { name: string; latlng: [number, number] }[]
+  >([]);
+
+  // Init map
   useEffect(() => {
     if (!open || !mapRef.current || leafletMapRef.current) return;
     let cancelled = false;
@@ -69,14 +100,33 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
         const res = await fetch(NL_PROVINCES_URL);
         const geo = await res.json();
         if (cancelled) return;
-        L.geoJSON(geo, {
+        const layer = L.geoJSON(geo, {
           style: {
             color: PURPLE,
             weight: 2,
             fillColor: PURPLE,
             fillOpacity: 0.35,
           },
+          onEachFeature: (feature, lyr: any) => {
+            const name =
+              feature.properties?.statnaam ||
+              feature.properties?.name ||
+              "Region";
+            lyr.bindTooltip(name, { sticky: true });
+          },
         }).addTo(map);
+        provincesLayerRef.current = layer;
+
+        const names: { name: string; latlng: [number, number] }[] = [];
+        layer.eachLayer((lyr: any) => {
+          const c = lyr.getBounds().getCenter();
+          const name =
+            lyr.feature.properties?.statnaam ||
+            lyr.feature.properties?.name ||
+            "Region";
+          names.push({ name, latlng: [c.lat, c.lng] });
+        });
+        setProvinceNames(names);
       } catch (e) {
         console.error("Failed to load NL provinces", e);
       }
@@ -87,15 +137,50 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
+        provincesLayerRef.current = null;
+        searchMarkerRef.current = null;
       }
     };
   }, [open]);
+
+  // Country change → fly map
+  useEffect(() => {
+    if (!leafletMapRef.current) return;
+    leafletMapRef.current.flyTo(country.center, country.zoom, { duration: 0.8 });
+  }, [country]);
 
   if (!open) return null;
 
   const handleZoom = (delta: number) => {
     if (!leafletMapRef.current) return;
     leafletMapRef.current.setZoom(leafletMapRef.current.getZoom() + delta);
+  };
+
+  const filteredResults = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+    return provinceNames
+      .filter((p) => p.name.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [search, provinceNames]);
+
+  const handleSelectResult = async (r: { name: string; latlng: [number, number] }) => {
+    const L = (await import("leaflet")).default;
+    const map = leafletMapRef.current;
+    if (!map) return;
+    map.flyTo(r.latlng, 9, { duration: 0.8 });
+    if (searchMarkerRef.current) searchMarkerRef.current.remove();
+    searchMarkerRef.current = L.circleMarker(r.latlng, {
+      radius: 8,
+      color: ACCENT,
+      fillColor: ACCENT,
+      fillOpacity: 0.6,
+    })
+      .addTo(map)
+      .bindPopup(r.name)
+      .openPopup();
+    setSearch(r.name);
+    setSearchOpen(false);
   };
 
   const toolbarIcons: { key: PanelKey; Icon: any; label: string }[] = [
@@ -108,16 +193,20 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
   ];
 
   const togglePanel = (key: PanelKey) => {
-    if (activePanel === key) {
+    if (key === "home") {
+      leafletMapRef.current?.flyTo(country.center, country.zoom, { duration: 0.8 });
       setActivePanel(null);
-    } else {
+      return;
+    }
+    if (activePanel === key) setActivePanel(null);
+    else {
       setActivePanel(key);
       setPanelCollapsed(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#f3f4f6]">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#f3f4f6] animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 bg-white">
         <h2 className="text-base font-semibold text-foreground">Sevenn Map</h2>
@@ -137,47 +226,121 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
 
           {/* Top-left: menu + toolbar + search */}
           <div className="absolute top-4 left-4 z-[1000] flex items-start gap-3">
-            <div className="bg-white rounded-full shadow-md py-2 flex flex-col items-center gap-1 w-12">
+            <div className="bg-white rounded-full shadow-md py-1.5 flex flex-col items-center gap-1 w-10">
               <button
-                onClick={() => setActivePanel(null)}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
-                aria-label="Close panels"
+                onClick={() => {
+                  setToolbarOpen((v) => !v);
+                  if (toolbarOpen) setActivePanel(null);
+                }}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
+                aria-label="Toggle menu"
               >
-                <X size={20} />
+                {toolbarOpen ? <X size={18} /> : <Menu size={18} />}
               </button>
-              {toolbarIcons.map(({ key, Icon, label }) => {
-                const active = activePanel === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => togglePanel(key)}
-                    aria-label={label}
-                    className={`w-10 h-10 flex items-center justify-center rounded-full transition ${
-                      active
-                        ? "bg-[#3b39e8] text-white"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <Icon size={18} />
-                  </button>
-                );
-              })}
+              <div
+                className={`overflow-hidden transition-all duration-300 ease-out flex flex-col items-center gap-1 ${
+                  toolbarOpen ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0"
+                }`}
+              >
+                {toolbarIcons.map(({ key, Icon, label }) => {
+                  const active = activePanel === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => togglePanel(key)}
+                      aria-label={label}
+                      title={label}
+                      className={`w-8 h-8 flex items-center justify-center rounded-full transition ${
+                        active
+                          ? "bg-[#3b39e8] text-white"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Icon size={16} />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="h-12 w-[320px] bg-white rounded-full shadow-md flex items-center px-5 gap-3">
-              <Search size={18} className="text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search"
-                className="flex-1 bg-transparent outline-none text-sm placeholder:text-gray-400"
-              />
+            {/* Search */}
+            <div className="relative">
+              <div className="h-9 w-[300px] bg-white rounded-full shadow-md flex items-center px-4 gap-2">
+                <Search size={16} className="text-gray-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setSearchOpen(true);
+                  }}
+                  onFocus={() => setSearchOpen(true)}
+                  onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
+                  placeholder="Search"
+                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-gray-400"
+                />
+                {search && (
+                  <button
+                    onClick={() => {
+                      setSearch("");
+                      searchMarkerRef.current?.remove();
+                      searchMarkerRef.current = null;
+                    }}
+                    className="text-gray-400 hover:text-gray-700"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              {searchOpen && filteredResults.length > 0 && (
+                <ul className="absolute top-11 left-0 w-full bg-white rounded-2xl shadow-lg overflow-hidden animate-fade-in">
+                  {filteredResults.map((r) => (
+                    <li key={r.name}>
+                      <button
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleSelectResult(r)}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <Search size={14} className="text-gray-400" />
+                        {r.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {searchOpen && search && filteredResults.length === 0 && (
+                <div className="absolute top-11 left-0 w-full bg-white rounded-2xl shadow-lg px-4 py-3 text-sm text-gray-500 animate-fade-in">
+                  No results
+                </div>
+              )}
             </div>
           </div>
 
           {/* Top-right: dropdowns */}
           <div className="absolute top-4 right-4 z-[1000] flex items-center gap-3">
-            <DropdownPill label="Country" />
-            <DropdownPill label="EN" compact />
+            <Dropdown
+              width="w-36"
+              value={country.name}
+              options={COUNTRIES.map((c) => ({ key: c.code, label: c.name }))}
+              onSelect={(key) => {
+                const c = COUNTRIES.find((x) => x.code === key);
+                if (c) setCountry(c);
+              }}
+              activeKey={country.code}
+            />
+            <Dropdown
+              width="w-24"
+              value={language.code}
+              options={LANGUAGES.map((l) => ({
+                key: l.code,
+                label: `${l.code} — ${l.name}`,
+              }))}
+              onSelect={(key) => {
+                const l = LANGUAGES.find((x) => x.code === key);
+                if (l) setLanguage(l);
+              }}
+              activeKey={language.code}
+            />
           </div>
 
           {/* Bottom-left: zoom */}
@@ -230,6 +393,58 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
   );
 }
 
+function Dropdown({
+  value,
+  options,
+  onSelect,
+  activeKey,
+  width,
+}: {
+  value: string;
+  options: { key: string; label: string }[];
+  onSelect: (key: string) => void;
+  activeKey: string;
+  width: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className={`h-9 ${width} bg-white rounded-full shadow-md flex items-center justify-between gap-2 px-4 text-sm text-gray-700 hover:shadow-lg transition`}
+      >
+        <span className="truncate">{value}</span>
+        <ChevronDown
+          size={14}
+          className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <ul className="absolute top-11 right-0 min-w-full w-max bg-white rounded-2xl shadow-lg overflow-hidden animate-fade-in z-10">
+          {options.map((o) => (
+            <li key={o.key}>
+              <button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onSelect(o.key);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between gap-3 ${
+                  activeKey === o.key ? "text-[#3b39e8] font-medium" : "text-gray-700"
+                }`}
+              >
+                <span>{o.label}</span>
+                {activeKey === o.key && <Check size={14} />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function SidePanel({
   panel,
   collapsed,
@@ -242,8 +457,7 @@ function SidePanel({
   onClose: () => void;
 }) {
   return (
-    <div className="absolute top-4 right-4 z-[1000] flex items-start">
-      {/* Collapse tab */}
+    <div className="absolute top-16 right-4 z-[1000] flex items-start animate-fade-in">
       <button
         onClick={onToggleCollapse}
         className="mt-44 -mr-px w-6 h-10 bg-white rounded-l-md shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800"
@@ -253,7 +467,7 @@ function SidePanel({
       </button>
 
       {!collapsed && (
-        <div className="w-[340px] mt-14 bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div className="w-[340px] bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4">
             <h3 className="text-base font-semibold text-gray-900">
               {panelTitle(panel)}
@@ -297,13 +511,13 @@ function renderPanelBody(panel: PanelKey) {
     case "bookmark":
       return <BookmarkPanel />;
     case "layers":
-      return <PlaceholderPanel text="Toggle map layers here." />;
+      return <LayersPanel />;
     case "upload":
-      return <PlaceholderPanel text="Drop or pick a file to upload." />;
+      return <UploadPanel />;
     case "home":
       return <PlaceholderPanel text="Reset map to default view." />;
     case "settings":
-      return <PlaceholderPanel text="Map preferences." />;
+      return <SettingsPanel />;
   }
 }
 
@@ -311,9 +525,133 @@ function PlaceholderPanel({ text }: { text: string }) {
   return <p className="text-sm text-gray-500">{text}</p>;
 }
 
+function LayersPanel() {
+  const [layers, setLayers] = useState([
+    { key: "councils", label: "Councils", on: true },
+    { key: "roads", label: "Roads", on: true },
+    { key: "labels", label: "Labels", on: true },
+    { key: "satellite", label: "Satellite", on: false },
+  ]);
+  return (
+    <ul className="space-y-2">
+      {layers.map((l) => (
+        <li
+          key={l.key}
+          className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3"
+        >
+          <span className="text-sm text-gray-800">{l.label}</span>
+          <button
+            onClick={() =>
+              setLayers((ls) =>
+                ls.map((x) => (x.key === l.key ? { ...x, on: !x.on } : x)),
+              )
+            }
+            className={`w-10 h-6 rounded-full relative transition ${
+              l.on ? "bg-[#3b39e8]" : "bg-gray-300"
+            }`}
+            aria-label={`Toggle ${l.label}`}
+          >
+            <span
+              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${
+                l.on ? "left-[18px]" : "left-0.5"
+              }`}
+            />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function UploadPanel() {
+  const [files, setFiles] = useState<File[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div>
+      <button
+        onClick={() => inputRef.current?.click()}
+        className="w-full border-2 border-dashed border-gray-300 rounded-xl py-8 flex flex-col items-center text-gray-500 hover:border-[#3b39e8] hover:text-[#3b39e8] transition"
+      >
+        <Upload size={24} />
+        <span className="mt-2 text-sm">Click to upload files</span>
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) =>
+          setFiles((f) => [...f, ...Array.from(e.target.files ?? [])])
+        }
+      />
+      {files.length > 0 && (
+        <ul className="mt-4 space-y-2">
+          {files.map((f, i) => (
+            <li
+              key={i}
+              className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm"
+            >
+              <span className="truncate">{f.name}</span>
+              <button
+                onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))}
+                className="text-gray-400 hover:text-gray-700"
+              >
+                <X size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function SettingsPanel() {
+  const [units, setUnits] = useState<"metric" | "imperial">("metric");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-sm font-medium text-gray-800 mb-2">Units</p>
+        <div className="bg-gray-100 rounded-full p-1 flex">
+          {(["metric", "imperial"] as const).map((u) => (
+            <button
+              key={u}
+              onClick={() => setUnits(u)}
+              className={`flex-1 h-8 rounded-full text-xs font-medium capitalize transition ${
+                units === u ? "bg-[#3b39e8] text-white" : "text-gray-700"
+              }`}
+            >
+              {u}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="text-sm font-medium text-gray-800 mb-2">Theme</p>
+        <div className="bg-gray-100 rounded-full p-1 flex">
+          {(["light", "dark"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTheme(t)}
+              className={`flex-1 h-8 rounded-full text-xs font-medium capitalize transition ${
+                theme === t ? "bg-[#3b39e8] text-white" : "text-gray-700"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DrawPanel() {
   const [tab, setTab] = useState<"draw" | "styles">("draw");
   const [tool, setTool] = useState<string | null>(null);
+  const [stroke, setStroke] = useState("#3b39e8");
+  const [opacity, setOpacity] = useState(50);
 
   const tools = [
     { key: "point", label: "Point", Icon: Dot },
@@ -327,22 +665,17 @@ function DrawPanel() {
   return (
     <div>
       <div className="bg-gray-100 rounded-full p-1 flex mb-5">
-        <button
-          onClick={() => setTab("draw")}
-          className={`flex-1 h-9 rounded-full text-sm font-medium transition ${
-            tab === "draw" ? "bg-[#3b39e8] text-white" : "text-gray-700"
-          }`}
-        >
-          Draw
-        </button>
-        <button
-          onClick={() => setTab("styles")}
-          className={`flex-1 h-9 rounded-full text-sm font-medium transition ${
-            tab === "styles" ? "bg-[#3b39e8] text-white" : "text-gray-700"
-          }`}
-        >
-          Styles
-        </button>
+        {(["draw", "styles"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`flex-1 h-9 rounded-full text-sm font-medium capitalize transition ${
+              tab === t ? "bg-[#3b39e8] text-white" : "text-gray-700"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
       </div>
 
       {tab === "draw" ? (
@@ -366,7 +699,36 @@ function DrawPanel() {
           })}
         </div>
       ) : (
-        <PlaceholderPanel text="Customize stroke, fill, and opacity." />
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm font-medium text-gray-800 mb-2">Stroke color</p>
+            <div className="flex gap-2">
+              {["#3b39e8", "#8b5cf6", "#ef4444", "#10b981", "#f59e0b"].map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setStroke(c)}
+                  className={`w-8 h-8 rounded-full border-2 transition ${
+                    stroke === c ? "border-gray-900 scale-110" : "border-white"
+                  }`}
+                  style={{ background: c }}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-800 mb-2">
+              Fill opacity: {opacity}%
+            </p>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={opacity}
+              onChange={(e) => setOpacity(+e.target.value)}
+              className="w-full accent-[#3b39e8]"
+            />
+          </div>
+        </div>
       )}
     </div>
   );
@@ -386,7 +748,7 @@ function BookmarkPanel() {
         <button
           onClick={() =>
             setBookmarks([
-              { id: crypto.randomUUID(), name: `Bookmark ${bookmarks.length + 1}` },
+              { id: crypto.randomUUID(), name: `Bookmark 1` },
             ])
           }
           className="mt-5 px-5 h-10 rounded-full bg-[#3b39e8] text-white text-sm font-medium hover:opacity-90 transition"
@@ -398,21 +760,23 @@ function BookmarkPanel() {
   }
 
   return (
-    <ul className="space-y-2">
-      {bookmarks.map((b) => (
-        <li
-          key={b.id}
-          className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 text-sm"
-        >
-          <span>{b.name}</span>
-          <button
-            onClick={() => setBookmarks((bs) => bs.filter((x) => x.id !== b.id))}
-            className="text-gray-400 hover:text-gray-700"
+    <div>
+      <ul className="space-y-2">
+        {bookmarks.map((b) => (
+          <li
+            key={b.id}
+            className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 text-sm"
           >
-            <X size={16} />
-          </button>
-        </li>
-      ))}
+            <span>{b.name}</span>
+            <button
+              onClick={() => setBookmarks((bs) => bs.filter((x) => x.id !== b.id))}
+              className="text-gray-400 hover:text-gray-700"
+            >
+              <X size={16} />
+            </button>
+          </li>
+        ))}
+      </ul>
       <button
         onClick={() =>
           setBookmarks((bs) => [
@@ -420,30 +784,11 @@ function BookmarkPanel() {
             { id: crypto.randomUUID(), name: `Bookmark ${bs.length + 1}` },
           ])
         }
-        className="w-full mt-2 h-10 rounded-full bg-[#3b39e8] text-white text-sm font-medium hover:opacity-90 transition"
+        className="w-full mt-3 h-10 rounded-full bg-[#3b39e8] text-white text-sm font-medium hover:opacity-90 transition"
       >
         + Add Bookmark
       </button>
-    </ul>
-  );
-}
-
-function DropdownPill({
-  label,
-  compact = false,
-}: {
-  label: string;
-  compact?: boolean;
-}) {
-  return (
-    <button
-      className={`h-12 bg-white rounded-full shadow-md flex items-center justify-between gap-3 px-5 text-sm text-gray-700 hover:shadow-lg transition ${
-        compact ? "w-24" : "w-36"
-      }`}
-    >
-      <span>{label}</span>
-      <ChevronDown size={16} className="text-gray-400" />
-    </button>
+    </div>
   );
 }
 
