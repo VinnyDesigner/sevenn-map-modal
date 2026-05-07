@@ -541,6 +541,8 @@ function SidePanel({
     </div>
   );
 }
+
+function panelTitle(panel: PanelKey) {
   switch (panel) {
     case "home":
       return "Home";
