@@ -265,8 +265,8 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
 
             {/* Search */}
             <div className="relative">
-              <div className="h-9 w-[300px] bg-white rounded-full shadow-md flex items-center px-4 gap-2">
-                <Search size={16} className="text-gray-400" />
+              <div className="h-9 w-[180px] sm:w-[240px] md:w-[300px] bg-white rounded-full shadow-md flex items-center px-4 gap-2">
+                <Search size={16} className="text-gray-400 shrink-0" />
                 <input
                   type="text"
                   value={search}
@@ -277,7 +277,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
                   onFocus={() => setSearchOpen(true)}
                   onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
                   placeholder="Search"
-                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-gray-400"
+                  className="flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:text-gray-400"
                 />
                 {search && (
                   <button
@@ -317,9 +317,9 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Top-right: dropdowns */}
-          <div className="absolute top-4 right-4 z-[1000] flex items-center gap-3">
+          <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2 sm:gap-3">
             <Dropdown
-              width="w-36"
+              width="w-28 sm:w-36"
               value={country.name}
               options={COUNTRIES.map((c) => ({ key: c.code, label: c.name }))}
               onSelect={(key) => {
@@ -329,7 +329,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
               activeKey={country.code}
             />
             <Dropdown
-              width="w-24"
+              width="w-20 sm:w-24"
               value={language.code}
               options={LANGUAGES.map((l) => ({
                 key: l.code,
@@ -363,7 +363,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Bottom status bar */}
-          <div className="absolute bottom-4 left-20 z-[1000] bg-white rounded-full shadow-md px-5 h-10 flex items-center gap-4 text-xs text-gray-700">
+          <div className="absolute bottom-4 left-20 right-4 z-[1000] bg-white rounded-full shadow-md px-4 sm:px-5 h-10 flex items-center gap-2 sm:gap-4 text-xs text-gray-700 overflow-x-auto whitespace-nowrap max-w-[calc(100%-6rem)] w-fit">
             <StatusItem label="Zoom" value={String(zoom)} />
             <Divider />
             <StatusItem label="Resolution" value="873.53" />
@@ -372,7 +372,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
             <Divider />
             <StatusItem label="Legend(s)" value="" />
             <span
-              className="inline-block w-4 h-4 rounded-sm border-2"
+              className="inline-block w-4 h-4 rounded-sm border-2 shrink-0"
               style={{ borderColor: PURPLE, background: `${PURPLE}40` }}
             />
             <span>Councils</span>
@@ -456,28 +456,25 @@ function SidePanel({
   onToggleCollapse: () => void;
   onClose: () => void;
 }) {
-  // Default position: top-right area inside the map container
+  // null = use default right-aligned position; set on drag
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
 
-  // Initialize position once mounted (relative to parent)
-  useEffect(() => {
-    if (pos || !panelRef.current) return;
-    const parent = panelRef.current.offsetParent as HTMLElement | null;
-    if (!parent) return;
-    const pw = parent.clientWidth;
-    setPos({ x: pw - 280 - 16, y: 64 });
-  }, [pos]);
-
   const onMouseDown = (e: React.MouseEvent) => {
-    if (!panelRef.current || !pos) return;
-    dragRef.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
+    if (!panelRef.current) return;
+    const parent = panelRef.current.offsetParent as HTMLElement | null;
+    const rect = panelRef.current.getBoundingClientRect();
+    const parentRect = parent?.getBoundingClientRect();
+    const startX = parentRect ? rect.left - parentRect.left : rect.left;
+    const startY = parentRect ? rect.top - parentRect.top : rect.top;
+    dragRef.current = { dx: e.clientX - startX, dy: e.clientY - startY };
+    setPos({ x: startX, y: startY });
     const onMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return;
-      const parent = panelRef.current?.offsetParent as HTMLElement | null;
-      const maxX = parent ? parent.clientWidth - (panelRef.current?.offsetWidth ?? 0) : 9999;
-      const maxY = parent ? parent.clientHeight - (panelRef.current?.offsetHeight ?? 0) : 9999;
+      if (!dragRef.current || !panelRef.current) return;
+      const par = panelRef.current.offsetParent as HTMLElement | null;
+      const maxX = par ? par.clientWidth - panelRef.current.offsetWidth : 9999;
+      const maxY = par ? par.clientHeight - panelRef.current.offsetHeight : 9999;
       const nx = Math.max(0, Math.min(maxX, ev.clientX - dragRef.current.dx));
       const ny = Math.max(0, Math.min(maxY, ev.clientY - dragRef.current.dy));
       setPos({ x: nx, y: ny });
@@ -491,41 +488,56 @@ function SidePanel({
     window.addEventListener("mouseup", onUp);
   };
 
+  // When collapsed: snap tab to right edge of map (ignore drag pos)
+  if (collapsed) {
+    return (
+      <button
+        onClick={onToggleCollapse}
+        className="absolute right-0 top-16 z-[1000] w-7 h-9 bg-white rounded-l-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800 animate-fade-in"
+        aria-label="Expand panel"
+      >
+        <ChevronLeft size={14} />
+      </button>
+    );
+  }
+
+  // Expanded: default right-aligned under language dropdown, or dragged pos
+  const style: React.CSSProperties = pos
+    ? { left: pos.x, top: pos.y }
+    : { right: 16, top: 64 };
+
   return (
     <div
       ref={panelRef}
-      className="absolute z-[1000] w-[260px] animate-fade-in select-none"
-      style={pos ? { left: pos.x, top: pos.y } : { right: 16, top: 64, visibility: "hidden" }}
+      className="absolute z-[1000] w-[240px] sm:w-[260px] animate-fade-in select-none"
+      style={style}
     >
-      {/* External collapse tab */}
       <button
         onClick={onToggleCollapse}
         className="absolute -left-7 top-3 w-7 h-9 bg-white rounded-l-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800"
-        aria-label={collapsed ? "Expand panel" : "Collapse panel"}
+        aria-label="Collapse panel"
       >
-        {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        <ChevronRight size={14} />
       </button>
 
-      {!collapsed && (
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <div
-            onMouseDown={onMouseDown}
-            className="flex items-center justify-between px-4 py-2.5 cursor-move"
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div
+          onMouseDown={onMouseDown}
+          className="flex items-center justify-between px-4 py-2.5 cursor-move"
+        >
+          <h3 className="text-sm font-semibold text-gray-900">
+            {panelTitle(panel)}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-800 p-1"
+            aria-label="Close panel"
           >
-            <h3 className="text-sm font-semibold text-gray-900">
-              {panelTitle(panel)}
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-800 p-1"
-              aria-label="Close panel"
-            >
-              <X size={16} />
-            </button>
-          </div>
-          <div className="px-4 pb-4">{renderPanelBody(panel)}</div>
+            <X size={16} />
+          </button>
         </div>
-      )}
+        <div className="px-4 pb-4">{renderPanelBody(panel)}</div>
+      </div>
     </div>
   );
 }
