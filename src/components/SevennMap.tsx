@@ -412,7 +412,8 @@ function Dropdown({
       <button
         onClick={() => setOpen((v) => !v)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        className={`h-8 ${width} bg-white rounded-full shadow-md flex items-center justify-between gap-1.5 px-3 text-xs text-gray-700 hover:bg-gray-50 hover:shadow-lg transition`}
+        className={`h-8 ${width} bg-white rounded-full shadow-md flex items-center justify-between px-3 text-xs font-medium text-gray-900 hover:bg-gray-50 hover:shadow-lg transition`}
+        style={{ gap: 8 }}
       >
         <span className="truncate">{value}</span>
         <ChevronDown
