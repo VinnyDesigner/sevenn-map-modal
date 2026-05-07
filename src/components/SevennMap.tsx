@@ -181,16 +181,13 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
       );
 
       uploadGroupRef.current = L.layerGroup().addTo(map);
-      const drawGroup = L.layerGroup().addTo(map);
-      drawGroupRef.current = drawGroup;
-      drawGroup.on("layeradd", () => setDrawCount((n) => n + 1));
-      drawGroup.on("layerremove", () =>
-        setDrawCount(() => {
-          let c = 0;
-          drawGroup.eachLayer(() => { c++; });
-          return c;
-        }),
-      );
+      drawGroupRef.current = L.featureGroup().addTo(map);
+      drawGroupRef.current.on("layeradd layerremove", () => {
+        const g = drawGroupRef.current;
+        let c = 0;
+        g?.eachLayer(() => { c++; });
+        setDrawCount(c);
+      });
 
       map.on("zoomend", () =>
         setZoom(Math.round(map.getZoom() * 10) / 10),
