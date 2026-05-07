@@ -494,34 +494,38 @@ function SidePanel({
   return (
     <div
       ref={panelRef}
-      className="absolute z-[1000] w-[260px] bg-white rounded-2xl shadow-lg overflow-hidden animate-fade-in select-none"
+      className="absolute z-[1000] w-[260px] animate-fade-in select-none"
       style={pos ? { left: pos.x, top: pos.y } : { right: 16, top: 64, visibility: "hidden" }}
     >
-      <div
-        onMouseDown={onMouseDown}
-        className="flex items-center justify-between px-4 py-2.5 cursor-move"
+      {/* External collapse tab */}
+      <button
+        onClick={onToggleCollapse}
+        className="absolute -left-7 top-3 w-7 h-9 bg-white rounded-l-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800"
+        aria-label={collapsed ? "Expand panel" : "Collapse panel"}
       >
-        <h3 className="text-sm font-semibold text-gray-900">
-          {panelTitle(panel)}
-        </h3>
-        <button
-          onClick={onClose}
-          className="text-gray-500 hover:text-gray-800 p-1"
-          aria-label="Close panel"
-        >
-          <X size={16} />
-        </button>
-      </div>
-      <div className="flex justify-center -mt-1 mb-1">
-        <button
-          onClick={onToggleCollapse}
-          className="w-6 h-5 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-500"
-          aria-label={collapsed ? "Expand panel" : "Collapse panel"}
-        >
-          {collapsed ? <ChevronDown size={14} /> : <ChevronRight size={14} className="rotate-90" />}
-        </button>
-      </div>
-      {!collapsed && <div className="px-4 pb-4">{renderPanelBody(panel)}</div>}
+        {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+      </button>
+
+      {!collapsed && (
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div
+            onMouseDown={onMouseDown}
+            className="flex items-center justify-between px-4 py-2.5 cursor-move"
+          >
+            <h3 className="text-sm font-semibold text-gray-900">
+              {panelTitle(panel)}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-800 p-1"
+              aria-label="Close panel"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="px-4 pb-4">{renderPanelBody(panel)}</div>
+        </div>
+      )}
     </div>
   );
 }
