@@ -329,16 +329,6 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
               activeKey={country.code}
             />
             <Dropdown
-              width="w-20 sm:w-24"
-              value={country.name}
-              options={COUNTRIES.map((c) => ({ key: c.code, label: c.name }))}
-              onSelect={(key) => {
-                const c = COUNTRIES.find((x) => x.code === key);
-                if (c) setCountry(c);
-              }}
-              activeKey={country.code}
-            />
-            <Dropdown
               width="w-24"
               value={language.code}
               options={LANGUAGES.map((l) => ({
