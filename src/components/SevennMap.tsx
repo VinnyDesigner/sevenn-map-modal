@@ -226,7 +226,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
 
           {/* Top-left: menu + toolbar + search */}
           <div className="absolute top-4 left-4 z-[1000] flex items-start gap-3">
-            <div className="bg-white rounded-full shadow-md py-1.5 flex flex-col items-center gap-1 w-10">
+            <div className="bg-white rounded-full shadow-md hover:shadow-lg transition flex flex-col items-center w-8">
               <button
                 onClick={() => {
                   setToolbarOpen((v) => !v);
@@ -235,7 +235,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
                 aria-label="Toggle menu"
               >
-                {toolbarOpen ? <X size={18} /> : <Menu size={18} />}
+                {toolbarOpen ? <X size={14} /> : <Menu size={14} />}
               </button>
               <div
                 className={`overflow-hidden transition-all duration-300 ease-out flex flex-col items-center gap-1 ${
