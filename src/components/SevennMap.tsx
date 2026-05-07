@@ -266,7 +266,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
             {/* Search */}
             <div className="relative">
               <div className="h-8 w-[140px] sm:w-[180px] md:w-[220px] bg-white rounded-full shadow-md hover:shadow-lg transition flex items-center px-3 gap-2">
-                <Search size={16} className="text-gray-400 shrink-0" />
+                <Search size={14} className="text-gray-400 shrink-0" />
                 <input
                   type="text"
                   value={search}
