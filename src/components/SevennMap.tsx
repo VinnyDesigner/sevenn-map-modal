@@ -284,16 +284,34 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
     centerLatLng: any;
   }>({ points: [], tempLayer: null, centerLatLng: null });
 
-  const setDrawTool = useCallback((t: DrawTool | null) => {
-    // Clear any in-progress geometry when switching tools
+  const [drawCount, setDrawCount] = useState(0);
+
+  const resetInProgressDraw = useCallback(() => {
     drawStateRef.current.points = [];
     if (drawStateRef.current.tempLayer) {
       drawStateRef.current.tempLayer.remove();
       drawStateRef.current.tempLayer = null;
     }
     drawStateRef.current.centerLatLng = null;
-    setDrawToolState(t);
   }, []);
+
+  const setDrawTool = useCallback((t: DrawTool | null) => {
+    resetInProgressDraw();
+    setDrawToolState(t);
+  }, [resetInProgressDraw]);
+
+  const clearDrawings = useCallback(() => {
+    const grp = drawGroupRef.current;
+    let n = 0;
+    if (grp) {
+      grp.eachLayer(() => { n++; });
+      grp.clearLayers();
+    }
+    resetInProgressDraw();
+    setDrawCount(0);
+    return n;
+  }, [resetInProgressDraw]);
+
 
   useEffect(() => {
     const map = leafletMapRef.current;
