@@ -265,8 +265,8 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
 
             {/* Search */}
             <div className="relative">
-              <div className="h-9 w-[300px] bg-white rounded-full shadow-md flex items-center px-4 gap-2">
-                <Search size={16} className="text-gray-400" />
+              <div className="h-9 w-[180px] sm:w-[240px] md:w-[300px] bg-white rounded-full shadow-md flex items-center px-4 gap-2">
+                <Search size={16} className="text-gray-400 shrink-0" />
                 <input
                   type="text"
                   value={search}
@@ -277,7 +277,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
                   onFocus={() => setSearchOpen(true)}
                   onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
                   placeholder="Search"
-                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-gray-400"
+                  className="flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:text-gray-400"
                 />
                 {search && (
                   <button
@@ -317,9 +317,19 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Top-right: dropdowns */}
-          <div className="absolute top-4 right-4 z-[1000] flex items-center gap-3">
+          <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2 sm:gap-3">
             <Dropdown
-              width="w-36"
+              width="w-28 sm:w-36"
+              value={country.name}
+              options={COUNTRIES.map((c) => ({ key: c.code, label: c.name }))}
+              onSelect={(key) => {
+                const c = COUNTRIES.find((x) => x.code === key);
+                if (c) setCountry(c);
+              }}
+              activeKey={country.code}
+            />
+            <Dropdown
+              width="w-20 sm:w-24"
               value={country.name}
               options={COUNTRIES.map((c) => ({ key: c.code, label: c.name }))}
               onSelect={(key) => {
