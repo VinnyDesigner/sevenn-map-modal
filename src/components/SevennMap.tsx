@@ -277,7 +277,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
                   onFocus={() => setSearchOpen(true)}
                   onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
                   placeholder="Search"
-                  className="flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:text-gray-400"
+                  className="flex-1 min-w-0 bg-transparent outline-none text-xs placeholder:text-gray-400"
                 />
                 {search && (
                   <button
