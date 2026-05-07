@@ -92,6 +92,8 @@ interface MapCtxValue {
   setTheme: (t: "light" | "dark") => void;
   units: "metric" | "imperial";
   setUnits: (u: "metric" | "imperial") => void;
+  clearDrawings: () => number;
+  drawCount: number;
 }
 
 const MapCtx = createContext<MapCtxValue | null>(null);
