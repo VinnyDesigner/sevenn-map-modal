@@ -344,21 +344,21 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Bottom-left: zoom */}
-          <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-full shadow-md flex flex-col overflow-hidden">
+          <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition flex flex-col overflow-hidden">
             <button
               onClick={() => handleZoom(1)}
-              className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 transition"
+              className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 transition"
               aria-label="Zoom in"
             >
-              <Plus size={18} />
+              <Plus size={12} />
             </button>
-            <div className="h-px bg-gray-200 mx-2" />
+            <div className="h-px bg-gray-200 mx-1.5" />
             <button
               onClick={() => handleZoom(-1)}
-              className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 transition"
+              className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 transition"
               aria-label="Zoom out"
             >
-              <Minus size={18} />
+              <Minus size={12} />
             </button>
           </div>
 
