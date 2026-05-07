@@ -363,7 +363,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Bottom status bar */}
-          <div className="absolute bottom-4 left-20 right-4 z-[1000] bg-white rounded-full shadow-md px-4 sm:px-5 h-10 flex items-center gap-2 sm:gap-4 text-xs text-gray-700 overflow-x-auto whitespace-nowrap max-w-[calc(100%-6rem)] w-fit">
+          <div className="absolute bottom-4 left-16 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition px-3 h-7 flex items-center gap-2 text-[10px] text-gray-700 overflow-x-auto whitespace-nowrap max-w-[calc(100%-5rem)] w-fit">
             <StatusItem label="Zoom" value={String(zoom)} />
             <Divider />
             <StatusItem label="Resolution" value="873.53" />
@@ -372,7 +372,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
             <Divider />
             <StatusItem label="Legend(s)" value="" />
             <span
-              className="inline-block w-4 h-4 rounded-sm border-2 shrink-0"
+              className="inline-block w-3 h-3 rounded-sm border-2 shrink-0"
               style={{ borderColor: PURPLE, background: `${PURPLE}40` }}
             />
             <span>Councils</span>
