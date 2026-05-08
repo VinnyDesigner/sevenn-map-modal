@@ -516,8 +516,8 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#f3f4f6] animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white">
-        <h2 className="text-base font-semibold text-foreground">Sevenn Map</h2>
+      <div className="flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-4 bg-white">
+        <h2 className="text-sm sm:text-base font-semibold text-foreground">Sevenn Map</h2>
         <button
           onClick={onClose}
           className="text-foreground hover:opacity-70 transition"
@@ -529,12 +529,12 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
       </div>
 
       {/* Map container */}
-      <div className="flex-1 p-4 pt-0">
-        <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-md bg-white">
+      <div className="flex-1 p-2 sm:p-4 pt-0">
+        <div className="relative w-full h-full rounded-xl sm:rounded-2xl overflow-hidden shadow-md bg-white">
           <div ref={mapRef} className="absolute inset-0" />
 
           {/* Top-left: menu + toolbar + search */}
-          <div className="absolute top-4 left-4 z-[1000] flex items-start gap-3">
+          <div className="absolute top-2 sm:top-4 left-2 sm:left-4 z-[1000] flex items-start gap-2 sm:gap-3">
             <div className="bg-white rounded-full shadow-md hover:shadow-lg transition flex flex-col items-center w-8">
               <button
                 onClick={() => {
@@ -582,7 +582,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
 
             {/* Search */}
             <div className="relative">
-              <div className="h-8 w-[140px] sm:w-[180px] md:w-[220px] bg-white rounded-full shadow-md hover:shadow-lg transition flex items-center px-3 gap-2">
+              <div className="h-8 w-[120px] xs:w-[140px] sm:w-[180px] md:w-[220px] bg-white rounded-full shadow-md hover:shadow-lg transition flex items-center px-3 gap-2">
                 <Search size={14} className="text-gray-700 shrink-0" />
                 <input
                   type="text"
@@ -636,9 +636,9 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Top-right: dropdowns */}
-          <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2 sm:gap-3">
+          <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-[1000] flex items-center gap-1.5 sm:gap-3">
             <Dropdown
-              width="w-24 sm:w-28"
+              width="w-20 sm:w-28"
               value={country.name}
               options={COUNTRIES.map((c) => ({ key: c.code, label: c.name }))}
               onSelect={(key) => {
@@ -663,7 +663,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Bottom-left: zoom */}
-          <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition flex flex-col overflow-hidden">
+          <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition flex flex-col overflow-hidden">
             <button
               onClick={() => handleZoom(1)}
               className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 transition"
@@ -684,7 +684,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Bottom status bar */}
-          <div className="absolute bottom-4 left-16 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition px-3 h-7 flex items-center gap-2 text-[10px] text-gray-700 overflow-x-auto whitespace-nowrap max-w-[calc(100%-5rem)] w-fit">
+          <div className="hidden sm:flex absolute bottom-4 left-16 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition px-3 h-7 items-center gap-2 text-[10px] text-gray-700 overflow-x-auto whitespace-nowrap max-w-[calc(100%-5rem)] w-fit">
             <StatusItem label="Zoom" value={String(zoom)} />
             <Divider />
             <StatusItem label="Resolution" value="873.53" />
@@ -694,6 +694,17 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
             <StatusItem label="Legend(s)" value="" />
             <span
               className="inline-block w-3 h-3 rounded-sm border-2 shrink-0"
+              style={{ borderColor: PURPLE, background: `${PURPLE}40` }}
+            />
+            <span>Councils</span>
+          </div>
+
+          {/* Mobile compact status */}
+          <div className="flex sm:hidden absolute bottom-2 left-12 z-[1000] bg-white rounded-full shadow-md px-2.5 h-7 items-center gap-1.5 text-[10px] text-gray-700">
+            <StatusItem label="Zoom" value={String(zoom)} />
+            <Divider />
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-sm border-2 shrink-0"
               style={{ borderColor: PURPLE, background: `${PURPLE}40` }}
             />
             <span>Councils</span>
@@ -835,28 +846,11 @@ function SidePanel({
     : { right: 16, top: 56 };
 
   return (
-    <div
-      ref={panelRef}
-      className="absolute z-[1000] w-[240px] sm:w-[260px] animate-fade-in select-none"
-      style={style}
-    >
-      <button
-        onClick={onToggleCollapse}
-        className="absolute -left-7 top-3 w-7 h-9 bg-white rounded-l-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800"
-        aria-label="Collapse panel"
-        title="Collapse panel"
-      >
-        <ChevronRight size={14} />
-      </button>
-
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div
-          onMouseDown={onMouseDown}
-          className="flex items-center justify-between px-4 py-2.5 cursor-move"
-        >
-          <h3 className="text-sm font-semibold text-gray-900">
-            {panelTitle(panel)}
-          </h3>
+    <>
+      {/* Mobile: bottom sheet */}
+      <div className="sm:hidden absolute inset-x-0 bottom-0 z-[1000] bg-white rounded-t-2xl shadow-2xl animate-fade-in max-h-[70%] flex flex-col">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">{panelTitle(panel)}</h3>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-800 p-1"
@@ -866,9 +860,45 @@ function SidePanel({
             <X size={16} />
           </button>
         </div>
-        <div className="px-4 pb-4">{renderPanelBody(panel)}</div>
+        <div className="px-4 py-3 overflow-y-auto">{renderPanelBody(panel)}</div>
       </div>
-    </div>
+
+      {/* Desktop / tablet: floating draggable panel */}
+      <div
+        ref={panelRef}
+        className="hidden sm:block absolute z-[1000] w-[260px] md:w-[280px] animate-fade-in select-none"
+        style={style}
+      >
+        <button
+          onClick={onToggleCollapse}
+          className="absolute -left-7 top-3 w-7 h-9 bg-white rounded-l-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800"
+          aria-label="Collapse panel"
+          title="Collapse panel"
+        >
+          <ChevronRight size={14} />
+        </button>
+
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div
+            onMouseDown={onMouseDown}
+            className="flex items-center justify-between px-4 py-2.5 cursor-move"
+          >
+            <h3 className="text-sm font-semibold text-gray-900">
+              {panelTitle(panel)}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-800 p-1"
+              aria-label="Close panel"
+              title="Close panel"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="px-4 pb-4 max-h-[70vh] overflow-y-auto">{renderPanelBody(panel)}</div>
+        </div>
+      </div>
+    </>
   );
 }
 
