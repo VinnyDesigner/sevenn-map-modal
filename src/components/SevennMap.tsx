@@ -663,7 +663,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Bottom-left: zoom */}
-          <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition flex flex-col overflow-hidden">
+          <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition flex flex-col overflow-hidden">
             <button
               onClick={() => handleZoom(1)}
               className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 transition"
@@ -684,7 +684,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           </div>
 
           {/* Bottom status bar */}
-          <div className="absolute bottom-4 left-16 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition px-3 h-7 flex items-center gap-2 text-[10px] text-gray-700 overflow-x-auto whitespace-nowrap max-w-[calc(100%-5rem)] w-fit">
+          <div className="hidden sm:flex absolute bottom-4 left-16 z-[1000] bg-white rounded-full shadow-md hover:shadow-lg transition px-3 h-7 items-center gap-2 text-[10px] text-gray-700 overflow-x-auto whitespace-nowrap max-w-[calc(100%-5rem)] w-fit">
             <StatusItem label="Zoom" value={String(zoom)} />
             <Divider />
             <StatusItem label="Resolution" value="873.53" />
@@ -694,6 +694,17 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
             <StatusItem label="Legend(s)" value="" />
             <span
               className="inline-block w-3 h-3 rounded-sm border-2 shrink-0"
+              style={{ borderColor: PURPLE, background: `${PURPLE}40` }}
+            />
+            <span>Councils</span>
+          </div>
+
+          {/* Mobile compact status */}
+          <div className="flex sm:hidden absolute bottom-2 left-12 z-[1000] bg-white rounded-full shadow-md px-2.5 h-7 items-center gap-1.5 text-[10px] text-gray-700">
+            <StatusItem label="Zoom" value={String(zoom)} />
+            <Divider />
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-sm border-2 shrink-0"
               style={{ borderColor: PURPLE, background: `${PURPLE}40` }}
             />
             <span>Councils</span>
