@@ -846,28 +846,11 @@ function SidePanel({
     : { right: 16, top: 56 };
 
   return (
-    <div
-      ref={panelRef}
-      className="absolute z-[1000] w-[240px] sm:w-[260px] animate-fade-in select-none"
-      style={style}
-    >
-      <button
-        onClick={onToggleCollapse}
-        className="absolute -left-7 top-3 w-7 h-9 bg-white rounded-l-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800"
-        aria-label="Collapse panel"
-        title="Collapse panel"
-      >
-        <ChevronRight size={14} />
-      </button>
-
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div
-          onMouseDown={onMouseDown}
-          className="flex items-center justify-between px-4 py-2.5 cursor-move"
-        >
-          <h3 className="text-sm font-semibold text-gray-900">
-            {panelTitle(panel)}
-          </h3>
+    <>
+      {/* Mobile: bottom sheet */}
+      <div className="sm:hidden absolute inset-x-0 bottom-0 z-[1000] bg-white rounded-t-2xl shadow-2xl animate-fade-in max-h-[70%] flex flex-col">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">{panelTitle(panel)}</h3>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-800 p-1"
@@ -877,9 +860,45 @@ function SidePanel({
             <X size={16} />
           </button>
         </div>
-        <div className="px-4 pb-4">{renderPanelBody(panel)}</div>
+        <div className="px-4 py-3 overflow-y-auto">{renderPanelBody(panel)}</div>
       </div>
-    </div>
+
+      {/* Desktop / tablet: floating draggable panel */}
+      <div
+        ref={panelRef}
+        className="hidden sm:block absolute z-[1000] w-[260px] md:w-[280px] animate-fade-in select-none"
+        style={style}
+      >
+        <button
+          onClick={onToggleCollapse}
+          className="absolute -left-7 top-3 w-7 h-9 bg-white rounded-l-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-800"
+          aria-label="Collapse panel"
+          title="Collapse panel"
+        >
+          <ChevronRight size={14} />
+        </button>
+
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div
+            onMouseDown={onMouseDown}
+            className="flex items-center justify-between px-4 py-2.5 cursor-move"
+          >
+            <h3 className="text-sm font-semibold text-gray-900">
+              {panelTitle(panel)}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-800 p-1"
+              aria-label="Close panel"
+              title="Close panel"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="px-4 pb-4 max-h-[70vh] overflow-y-auto">{renderPanelBody(panel)}</div>
+        </div>
+      </div>
+    </>
   );
 }
 
