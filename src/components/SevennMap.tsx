@@ -638,7 +638,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           {/* Top-right: dropdowns */}
           <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-[1000] flex items-center gap-1.5 sm:gap-3">
             <Dropdown
-              width="w-24 sm:w-28"
+              width="w-20 sm:w-28"
               value={country.name}
               options={COUNTRIES.map((c) => ({ key: c.code, label: c.name }))}
               onSelect={(key) => {
