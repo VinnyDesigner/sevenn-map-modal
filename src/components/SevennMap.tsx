@@ -534,7 +534,7 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
           <div ref={mapRef} className="absolute inset-0" />
 
           {/* Top-left: menu + toolbar + search */}
-          <div className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-auto z-[1000] flex items-start gap-2 sm:gap-3">
+          <div className="absolute top-2 sm:top-4 left-2 sm:left-4 z-[1000] flex items-start gap-2 sm:gap-3">
             <div className="bg-white rounded-full shadow-md hover:shadow-lg transition flex flex-col items-center w-8">
               <button
                 onClick={() => {
