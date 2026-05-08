@@ -529,12 +529,12 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
       </div>
 
       {/* Map container */}
-      <div className="flex-1 p-4 pt-0">
-        <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-md bg-white">
+      <div className="flex-1 p-2 sm:p-4 pt-0">
+        <div className="relative w-full h-full rounded-xl sm:rounded-2xl overflow-hidden shadow-md bg-white">
           <div ref={mapRef} className="absolute inset-0" />
 
           {/* Top-left: menu + toolbar + search */}
-          <div className="absolute top-4 left-4 z-[1000] flex items-start gap-3">
+          <div className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-auto z-[1000] flex items-start gap-2 sm:gap-3">
             <div className="bg-white rounded-full shadow-md hover:shadow-lg transition flex flex-col items-center w-8">
               <button
                 onClick={() => {
