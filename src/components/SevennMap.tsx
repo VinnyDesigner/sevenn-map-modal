@@ -529,8 +529,8 @@ export default function SevennMap({ open, onClose }: SevennMapProps) {
       </div>
 
       {/* Map container */}
-      <div className="flex-1 p-2 sm:p-4 pt-0">
-        <div className="relative w-full h-full rounded-xl sm:rounded-2xl overflow-hidden shadow-md bg-white">
+      <div className="flex-1">
+        <div className="relative w-full h-full overflow-hidden bg-white">
           <div ref={mapRef} className="absolute inset-0" />
 
           {/* Top-left: menu + toolbar + search */}
